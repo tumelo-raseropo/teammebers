@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Management System</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        h1, h2 {
+            color: #2c3e50;
+        }
+        
+        .form-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #34495e;
+        }
+        
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .team-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .team-member {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .team-member:hover {
+            transform: translateY(-5px);
+        }
+        
+        .member-image {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 15px;
+            border: 3px solid #3498db;
+        }
+        
+        .member-name {
+            font-size: 20px;
+            margin: 0 0 5px 0;
+            color: #2c3e50;
+        }
+        
+        .member-role {
+            color: #7f8c8d;
+            margin: 0 0 10px 0;
+        }
+        
+        .member-email {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+        
+        .error {
+            color: #e74c3c;
+            padding: 10px;
+            background: #fadbd8;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 600px) {
+            .form-row {
+                flex-direction: column;
+            }
+            
+            .team-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Team Management</h1>
+    
+    <div class="form-container">
+        <h2>Add New Member</h2>
+        <form id="memberForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="role">Role</label>
+                    <input type="text" id="role" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="image">Image URL</label>
+                    <input type="url" id="image" placeholder="https://example.com/image.jpg">
+                </div>
+            </div>
+            
+            <button type="submit">Add Team Member</button>
+        </form>
+        
+        <div id="errorMessage" class="error" style="display: none;"></div>
+    </div>
+    
+    <h2>Team Members</h2>
+    <div id="teamContainer">
+        <div class="loading">Loading team members...</div>
+        <div id="teamList" class="team-list"></div>
+    </div>
+
+    <script>
+        // Your Google Apps Script Web App URL
+        const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbwRcFPlsckHqp1PpnUBDLkAg8lzBLcHn7I_Mxes0SLhmboX2GBl5n31ZPb1SVy3svK1Dg/exec";
+        
+        // DOM Elements
+        const form = document.getElementById('memberForm');
+        const teamList = document.getElementById('teamList');
+        const errorMessage = document.getElementById('errorMessage');
+        const teamContainer = document.getElementById('teamContainer');
+        
+        // Load team members when page loads
+        document.addEventListener('DOMContentLoaded', loadTeamMembers);
+        
+        // Form submission handler
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const memberData = {
+                name: document.getElementById('name').value.trim(),
+                role: document.getElementById('role').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                image: document.getElementById('image').value.trim() || 'https://via.placeholder.com/150'
+            };
+            
+            try {
+                // Show loading state
+                teamContainer.innerHTML = '<div class="loading">Saving team member...</div>';
+                
+                // Save to Google Sheets
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    body: JSON.stringify(memberData),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to save team member');
+                }
+                
+                // Clear form and reload team
+                form.reset();
+                loadTeamMembers();
+            } catch (error) {
+                showError(error.message);
+                loadTeamMembers(); // Reload team even if there was an error
+            }
+        });
+        
+        // Load team members from Google Sheets
+        async function loadTeamMembers() {
+            try {
+                teamContainer.innerHTML = '<div class="loading">Loading team members...</div>';
+                
+                const response = await fetch(API_ENDPOINT);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load team members');
+                }
+                
+                const teamMembers = await response.json();
+                
+                if (teamMembers.length === 0) {
+                    teamContainer.innerHTML = '<div class="loading">No team members found. Add your first member above!</div>';
+                    return;
+                }
+                
+                // Display team members
+                teamList.innerHTML = teamMembers.map(member => `
+                    <div class="team-member">
+                        <img src="${member.image}" alt="${member.name}" class="member-image">
+                        <h3 class="member-name">${member.name}</h3>
+                        <p class="member-role">${member.role}</p>
+                        <a href="mailto:${member.email}" class="member-email">${member.email}</a>
+                    </div>
+                `).join('');
+                
+                teamContainer.innerHTML = '<div id="teamList" class="team-list"></div>';
+                document.getElementById('teamList').innerHTML = teamList.innerHTML;
+                
+            } catch (error) {
+                showError(error.message);
+                teamContainer.innerHTML = '<div class="error">Failed to load team members. Please try again later.</div>';
+            }
+        }
+        
+        // Show error message
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            
+            // Hide error after 5 seconds
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
